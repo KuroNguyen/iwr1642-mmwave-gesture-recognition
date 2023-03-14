@@ -9,7 +9,6 @@ from tqdm import tqdm
 import colorama
 from colorama import Fore
 
-from utils.util_functions import error
 colorama.init(autoreset=True)
 
 class OPCODE:

@@ -12,6 +12,7 @@ class Completer(object):
                 return [c + ' ' for c in list][state]
             else:
                 return [c + ' ' for c in list if c.startswith(line)][state]
+
         self.list_completer = list_completer
 
     def path_completer(self, text, state):
