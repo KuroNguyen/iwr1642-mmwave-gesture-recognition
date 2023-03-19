@@ -126,7 +126,7 @@ class Logger:
         save_dir = gesture.get_dir()
         for f in tqdm(os.listdir(save_dir), desc='Files', leave=False):
             df = pd.read_csv(os.path.join(save_dir, f))
-            num_of_frames = int(df.iloc[-1]['FrameNumber'] + 1)
+            num_of_frames = int(df.iloc[-1]['frame'] + 1)
             sample = [[] for _ in range(num_of_frames)]
 
             for _, row in df.iterrows():
@@ -134,13 +134,39 @@ class Logger:
                     obj = 5 * [0.]
                 else:
                     obj = [
-                        float(row['x']),
-                        float(row['y']),
-                        float(row['Range']),
-                        float(row['PeakValue']),
-                        float(row['Velocity'])
+                        float(row['x'])/65535.,
+                        float(row['y'])/65535.,
+                        float(row['range_idx'])/65535.,
+                        float(row['peak_value'])/65535.,
+                        float(row['doppler_idx'])/65535.
                     ]
-                sample[int(row['FrameNumber'])].append(obj)
+                sample[int(row['frame'])].append(obj)
+
+            yield sample
+
+    @staticmethod
+    def get_data_in_range(gesture, start, end):
+        if isinstance(gesture, str):
+            gesture = GESTURE[gesture.upper()]
+        save_dir = gesture.get_dir()
+        f_dir = Logger.get_dir_with_range(save_dir, start_index=start, end_index=end)
+        for f in tqdm(f_dir, desc='Files', leave=False):
+            df = pd.read_csv(os.path.join(save_dir, f))
+            num_of_frames = int(df.iloc[-1]['frame'] + 1)
+            sample = [[] for _ in range(num_of_frames)]
+
+            for _, row in df.iterrows():
+                if row['x'] == 'None':
+                    obj = 5 * [0.]
+                else:
+                    obj = [
+                        float(row['x'])/65535.,
+                        float(row['y'])/65535.,
+                        float(row['range_idx'])/65535.,
+                        float(row['peak_value'])/65535.,
+                        float(row['doppler_idx'])/65535.
+                    ]
+                sample[(row['frame'])].append(obj)
 
             yield sample
 
@@ -185,3 +211,47 @@ class Logger:
             y = pickle.load(open(y_file, 'rb'))
             print(f'{Fore.GREEN}Done.')
         return X, y
+    
+    @staticmethod
+    def get_all_data_in_range(start, end, refresh_data=False):
+        X_file = os.path.join(os.path.dirname(__file__), '.X_data')
+        y_file = os.path.join(os.path.dirname(__file__), '.y_data')
+        if refresh_data:
+            X = []
+            y = []
+            for gesture in tqdm(GESTURE, desc='Gestures'):
+                for sample in Logger.get_data_in_range(gesture, start, end):
+                    X.append(sample)
+                    y.append(gesture.value)
+            pickle.dump(X, open(X_file, 'wb'))
+            pickle.dump(y, open(y_file, 'wb'))
+        else:
+            print('Loading cached data...', end='')
+            X = pickle.load(open(X_file, 'rb'))
+            y = pickle.load(open(y_file, 'rb'))
+            print(f'{Fore.GREEN}Done.')
+        return X, y
+    
+    #### TODO: get_sample_with_index
+    @staticmethod
+    def get_sample_with_index(gesture, index):
+        if isinstance(gesture, str):
+            gesture = GESTURE[gesture.upper()]
+        save_dir = gesture.get_dir()
+
+        if os.listdir() == []:
+            return
+        
+        sample = 'sample_' + str(index) + '.csv'
+
+        return os.path.join(save_dir, sample)
+    
+    @staticmethod
+    def get_dir_with_range(path, start_index, end_index):
+        sample_number_range = range(start_index, end_index+1)
+        f_list = []
+        for f in os.listdir(path):
+            num = int(os.path.splitext(f)[0].split('_')[1])
+            if num in sample_number_range:
+                f_list.append(f)
+        return f_list
