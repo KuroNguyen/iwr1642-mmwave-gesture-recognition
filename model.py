@@ -20,6 +20,7 @@ class Model(ABC):
                  num_of_classes=9):
         self.model = None
         self.model_file = os.path.join(os.path.dirname(__file__), '.model')
+        self.retrain_model_file = os.path.join(os.path.dirname(__file__), '.retrain_model')
         print(f'{Fore.RED}Model file: {self.model_file}.')
 
         self.num_of_frames = num_of_frames
@@ -88,9 +89,32 @@ class Model(ABC):
                                                             verbose=True,
                                                             save_best_only=True)])
 
+    def retrain(self, X_train, y_train, X_val, y_val):
+        X_train, y_train = self.__prep_data(X_train, y_train)
+        X_val, y_val = self.__prep_data(X_val, y_val)
+        
+        if (self.model is None):
+            print(f'{Fore.RED} None pre-trained model was loaded')
+            return
+        
+        self.model.summary()
+        
+        self.model.fit(X_train, y_train, epochs=1000,
+                       validation_data=(X_val, y_val),
+                       callbacks=[callbacks.EarlyStopping(patience=100,
+                                                          restore_best_weights=True),
+                                  callbacks.ModelCheckpoint(self.retrain_model_file,
+                                                            verbose=True,
+                                                            save_best_only=True)])
+            
     def load(self):
         print('Loading model...', end='')
         self.model = tf.keras.models.load_model(self.model_file)
+        print(f'{Fore.GREEN}Done.')
+        
+    def load_retrain_model(self):
+        print('Loading retrain model...', end='')
+        self.model = tf.keras.models.load_model(self.retrain_model_file)
         print(f'{Fore.GREEN}Done.')
 
     def evaluate(self, X, y):
@@ -127,6 +151,7 @@ class LstmModel(Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model_file = os.path.join(os.path.dirname(__file__), '.lstm_model')
+        self.retrain_model_file = os.path.join(os.path.dirname(__file__), '.retrain_lstm_model')
 
     def create_model(self):
         self.model = tf.keras.Sequential([
