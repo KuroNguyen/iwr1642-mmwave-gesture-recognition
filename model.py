@@ -167,3 +167,75 @@ class LstmModel(Model):
 
             layers.Dense(self.num_of_classes, activation='softmax')
         ])
+        
+class TransModel(Model):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model_file = os.path.join(os.path.dirname(__file__), '.trans_model')
+        self.retrain_model_file = os.path.join(os.path.dirname(__file__), '.retrain_trans_model')
+        
+    def create_model(self):
+        inputs = layers.Input(shape=(self.num_of_frames, self.frame_size))
+
+        # Attention and Normalization
+        res = inputs
+        x = layers.MultiHeadAttention(key_dim=256, num_heads=32,
+                                      dropout=.5)(inputs, inputs)
+        x = layers.Dropout(.5)(x)
+        x = layers.LayerNormalization()(x)
+        res += x
+
+        # Feed Forward Part
+        x = layers.Conv1D(filters=512, kernel_size=1)(res)
+        x = layers.PReLU()(x)
+        x = layers.Dropout(.5)(x)
+
+        x = layers.Conv1D(filters=res.shape[-1], kernel_size=1)(x)
+        x = layers.Dropout(.5)(x)
+        x = layers.LayerNormalization()(x)
+        x += res
+
+        x = layers.GlobalAveragePooling1D()(x)
+
+        outputs = layers.Dense(self.num_of_classes, activation='softmax')(x)
+        self.model = tf.keras.Model(inputs, outputs)
+        
+
+class ConvModel(Model):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model_file = os.path.join(os.path.dirname(__file__), '.conv_model')
+        self.retrain_model_file = os.path.join(os.path.dirname(__file__), '.retrain_conv_model')
+
+    def create_model(self):
+        self.model = tf.keras.Sequential([
+            layers.InputLayer(input_shape=(self.num_of_frames, self.frame_size)),
+
+            layers.Conv1D(128, kernel_size=3),
+            layers.Conv1D(128, kernel_size=3),
+            layers.ReLU(),
+            layers.Dropout(.5),
+            layers.MaxPooling1D(),
+
+            layers.Conv1D(256, kernel_size=3),
+            layers.ReLU(),
+            layers.Dropout(.5),
+            layers.MaxPooling1D(),
+
+            layers.Conv1D(512, kernel_size=3),
+            layers.ReLU(),
+            layers.Dropout(.5),
+            layers.MaxPooling1D(),
+
+            layers.Flatten(),
+
+            layers.Dense(512),
+            layers.ReLU(),
+            layers.Dropout(.5),
+
+            layers.Dense(256),
+            layers.ReLU(),
+            layers.Dropout(.5),
+
+            layers.Dense(self.num_of_classes, activation='softmax')
+        ])
